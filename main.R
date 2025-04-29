@@ -1,6 +1,7 @@
 library(tidyverse)
 library(rvest)
 library(googlesheets4)
+library(viridis)
 
 # Importing data ----------------------------------------------------------
 
@@ -10,7 +11,8 @@ pool_picks_raw = googlesheets4::read_sheet("https://docs.google.com/spreadsheets
 # Data Wrangling ----------------------------------------------------------
 pool_picks = pool_picks_raw[,colSums(is.na(pool_picks_raw)) == 0] %>% 
   janitor::clean_names() %>% 
-  dplyr::mutate(across(-c(timestamp, email_address), ~ gsub("\\s+", " ", .x)))
+  dplyr::mutate(across(-c(timestamp, email_address), ~ gsub("\\s+", " ", .x))) %>% 
+  dplyr::rename(name = your_name_this_is_the_name_that_will_show_up_on_the_graph)
 new_names = colnames(pool_picks) %>% 
   str_remove("pick_a_") %>% 
   str_remove("group_") 
@@ -70,7 +72,7 @@ goalies_skaters = dplyr::bind_rows(goalies, skaters)
 ## NOTE ##
 # not all pool pick players seem to be posted on the skater/goalies list
 # the following are pool pick players which do not exist in skater+goalies list
-player_dictdf$name[!player_dictdf$name %in% skaters_goalies$player]
+player_dictdf$name[!player_dictdf$name %in% goalies_skaters$player]
 # > player_dictdf$name[!player_dictdf$name %in% skaters_goalies$player]
 # [1] "DAWS NJD"               "FLEURY MIN"             "KOTCHETKOV CAR"         "LINDGREN WSH"           "MARKSTROM NJD"          "RITTICH LAK"           
 # [7] "SAMSONOV VGK"           "WOLL TOR"               "AARON EKBLAD FLA"       "ALIAKSEI PROTAS WSH"    "DYLAN HOLLOWAY STL"     "GABRIEL VILARDI WPG"   
@@ -90,13 +92,30 @@ for(i in 1:length(dates)){
   dict = setNames(date_subset$score, date_subset$player)
   
   results[[i]] = pool_picks %>% 
-    dplyr::mutate(across(.cols = -c(timestamp, email_address), ~ dict[.x])) %>% 
-    dplyr::mutate(across(.cols = -c(timestamp, email_address), ~ifelse(is.na(.x), yes = 0, no = .x))) %>% 
-    dplyr::mutate(score = rowSums(across(-c(timestamp, email_address)), na.rm = TRUE),
+    dplyr::mutate(across(.cols = -c(timestamp, email_address, name), ~ dict[.x])) %>% 
+    dplyr::mutate(across(.cols = -c(timestamp, email_address, name), ~ifelse(is.na(.x), yes = 0, no = .x))) %>% 
+    dplyr::mutate(score = rowSums(across(-c(timestamp, email_address, name)), na.rm = TRUE),
                   date = dates[i])
 }
 results = dplyr::bind_rows(results)
 
+# gather latest score and names to generate graph ranking + score display
+results_maxscore = results %>% 
+  dplyr::filter(date == max(date)) %>% 
+  dplyr::arrange(desc(score))
+
+results$name = factor(results$name, levels = results_maxscore$name)
+
+# set colours
+n_lines = length(results_maxscore$name)
+colours = viridisLite::viridis(n = n_lines)
+pal = viridis::viridis(n = 10, option = "D")
+pal_rep = rep(pal, length.out = n_lines) 
+
+pal2 = colorspace::qualitative_hcl(n = n_lines)
+
+# set name labels
+name_labels = str_glue("{results_maxscore$name} : {results_maxscore$score}")
 
 # Plot results ------------------------------------------------------------
 
@@ -105,15 +124,26 @@ results = dplyr::bind_rows(results)
 #' @param results, data frame with cols email_address, date, score
 #'
 #' @returns ggplot
-plot_function = function(results){
-  
-  
-  
-  plt = ggplot2::ggplot(data = results,
-                        mapping = aes(x = date, y = score, colour = email_address)) +
-    geom_point()
-  
+plot_function = function(data, name_labs, name_colours){
+  plt = ggplot2::ggplot(data = data,
+                        mapping = aes(x = date, y = score, colour = name)) +
+    geom_point() +
+    geom_line() +
+    theme_bw() +
+    scale_colour_manual(name = "Name (By descending latest score)", values = name_colours, labels = name_labs) +
+    scale_y_continuous(name = "Score") +
+    scale_x_date(name = "Date") +
+    ggtitle(label = str_glue("NHL Pool Pick Scores as of: {Sys.Date()}"))
+  return(plt)
 }
 
-plt = results %>% 
-  ggplot2::ggplot(data = ., mapping = aes(x = ))
+plt = plot_function(data = results, name_labs = name_labels, name_colours=pal2)
+plt
+
+if(!dir.exists("output")){
+  dir.create("output")
+}
+
+png(filename = str_glue("output/pool_pick_visualization_{Sys.Date()}.png"), width = 10, height = 8, units = 'in', res = 300)
+plt
+dev.off()
