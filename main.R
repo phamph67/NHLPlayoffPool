@@ -2,6 +2,7 @@ library(tidyverse)
 library(rvest)
 library(googlesheets4)
 library(viridis)
+library(ggrepel)
 
 # Importing data ----------------------------------------------------------
 
@@ -102,7 +103,8 @@ results = dplyr::bind_rows(results)
 # gather latest score and names to generate graph ranking + score display
 results_maxscore = results %>% 
   dplyr::filter(date == max(date)) %>% 
-  dplyr::arrange(desc(score))
+  dplyr::arrange(desc(score)) %>% 
+  dplyr::mutate(name_labels = str_glue("{name} : {score}"))
 
 results$name = factor(results$name, levels = results_maxscore$name)
 
@@ -133,7 +135,16 @@ plot_function = function(data, name_labs, name_colours){
     scale_colour_manual(name = "Name (By descending latest score)", values = name_colours, labels = name_labs) +
     scale_y_continuous(name = "Score") +
     scale_x_date(name = "Date") +
-    ggtitle(label = str_glue("NHL Pool Pick Scores as of: {Sys.Date()}"))
+    theme(legend.position = "None") +
+    ggrepel::geom_label_repel(data = results_maxscore,
+            mapping = aes(label = name_labels),
+            direction = 'y',
+            force = 2.5,
+            max.overlaps = 10,
+            size = 2,
+            hjust = -0.2,
+            nudge_x = 0.5,
+            label.padding = 0.1)
   return(plt)
 }
 
