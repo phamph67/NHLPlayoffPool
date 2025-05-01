@@ -76,6 +76,10 @@ skaters = skaters %>%
 print("Fetching team standings")
 standings = get_standings()
 
+# getch playoff results
+print("Fetching Playoff results")
+playoff_results = get_playoff_rounds()
+
 print("writing data")
 
 fname_goalie = str_glue("data/goalies_{Sys.Date()}.csv")
@@ -86,3 +90,6 @@ readr::write_csv(x = skaters, file = fname_skaters)
 
 fname_standings = str_glue("data/standings_{Sys.Date()}.csv")
 readr::write_csv(x = standings, file = fname_standings)
+
+fname_playoff_results = str_glue("data/playoff_results_{Sys.Date()}.csv")
+readr::write_csv(x = playoff_results, file = fname_playoff_results)
