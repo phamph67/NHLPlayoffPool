@@ -3,6 +3,7 @@ library(rvest)
 library(googlesheets4)
 library(viridis)
 library(ggrepel)
+library(ggthemes)
 
 # Importing data ----------------------------------------------------------
 
@@ -70,6 +71,22 @@ skaters = dplyr::bind_rows(skaters) %>%
 
 goalies_skaters = dplyr::bind_rows(goalies, skaters)
 
+
+# Determine team status ---------------------------------------------------
+
+team_fnames = grep("playoff_results", x = dir("data"), value = TRUE) %>% 
+  paste0("data/", .)
+team_status = vector(mode = 'list', length = length(team_fnames))
+
+for(i in 1:length(team_fnames)){
+  team_status[[i]] = readr::read_csv(file = team_fnames[i])
+}
+team_status = dplyr::bind_rows(team_status)
+team_status = team_status %>% dplyr::filter(complete.cases(.))
+team_status = team_status %>% 
+  dplyr::mutate(eliminated = ifelse(team1_wins >= 4, yes = team2_short, NA))
+
+
 ## NOTE ##
 # not all pool pick players seem to be posted on the skater/goalies list
 # the following are pool pick players which do not exist in skater+goalies list
@@ -86,16 +103,36 @@ player_dictdf$name[!player_dictdf$name %in% goalies_skaters$player]
 
 dates = unique(goalies_skaters$date_retrieved)
 results = vector(mode = 'list', length = length(dates))
+player_cols = c(
+  "center_1", "center_2", "center_3", "center_4", "center_5", "center_6", "center_7", "center_8",
+  "winger_1", "winger_2", "winger_3", "winger_4", "winger_5", "winger_6", "winger_7", "winger_8", "winger_9", "winger_10",
+  "defenseman_1", "defenseman_2", "defenseman_3", "defenseman_4", "defenseman_5", "defenseman_6",
+  "goalie_1", "goalie_2", "goalie_3"
+)
+
 for(i in 1:length(dates)){
+  # gather eliminated teams
+  eliminated_teams = team_status %>%
+    dplyr::filter(date == dates[i]) %>% 
+    dplyr::select(eliminated) %>% 
+    filter(!is.na(eliminated)) %>% 
+    as.vector() %>% 
+    unlist()
+  
   # calculate each poolpick score by date
   date_subset = goalies_skaters %>% 
-    dplyr::filter(date_retrieved == dates[i])
+    dplyr::filter(date_retrieved == dates[i]) %>% 
+    # eliminated teams = NA points
+    dplyr::mutate(score = ifelse(team %in% eliminated_teams, NA, score))
+    
+  
   dict = setNames(date_subset$score, date_subset$player)
   
   results[[i]] = pool_picks %>% 
     dplyr::mutate(across(.cols = -c(timestamp, email_address, name), ~ dict[.x])) %>% 
-    dplyr::mutate(across(.cols = -c(timestamp, email_address, name), ~ifelse(is.na(.x), yes = 0, no = .x))) %>% 
-    dplyr::mutate(score = rowSums(across(-c(timestamp, email_address, name)), na.rm = TRUE),
+    # dplyr::mutate(across(.cols = -c(timestamp, email_address, name), ~ifelse(is.na(.x), yes = 0, no = .x))) %>% 
+    dplyr::mutate(score = rowSums(across(all_of(player_cols)), na.rm = TRUE), 
+                  players_remaining = length(player_cols) - rowSums(is.na(across(all_of(player_cols)))),
                   date = dates[i])
 }
 results = dplyr::bind_rows(results)
@@ -104,9 +141,15 @@ results = dplyr::bind_rows(results)
 results_maxscore = results %>% 
   dplyr::filter(date == max(date)) %>% 
   dplyr::arrange(desc(score)) %>% 
-  dplyr::mutate(name_labels = str_glue("{name} : {score}"))
+  dplyr::mutate(name_labels = str_glue("{name} : {score}, Remaining players: {players_remaining}"))
+
+# set y position for plotting
+results_maxscore$y_position = rev(seq(min(results$score), max(results$score), length.out = length(results_maxscore$name)))
 
 results$name = factor(results$name, levels = results_maxscore$name)
+
+
+
 
 # set colours
 n_lines = length(results_maxscore$name)
@@ -126,35 +169,53 @@ name_labels = str_glue("{results_maxscore$name} : {results_maxscore$score}")
 #' @param results, data frame with cols email_address, date, score
 #'
 #' @returns ggplot
-plot_function = function(data, name_labs, name_colours){
+plot_function = function(data, name_labs, name_colours, results_maxscore){
   plt = ggplot2::ggplot(data = data,
                         mapping = aes(x = date, y = score, colour = name)) +
     geom_point() +
-    geom_line() +
-    theme_bw() +
+    geom_line(alpha = 0.35, linetype = 2) +
     scale_colour_manual(name = "Name (By descending latest score)", values = name_colours, labels = name_labs) +
-    scale_y_continuous(name = "Score") +
-    scale_x_date(name = "Date") +
-    theme(legend.position = "None") +
-    ggrepel::geom_label_repel(data = results_maxscore,
-            mapping = aes(label = name_labels),
-            direction = 'y',
-            force = 2.5,
-            max.overlaps = 10,
-            size = 2,
-            hjust = -0.2,
-            nudge_x = 0.5,
-            label.padding = 0.1)
+    scale_y_continuous(name = "Score", 
+                       breaks = seq(0,500,20), 
+                       minor_breaks = seq(0, 500, 10)) +
+    scale_x_date(name = "Date", 
+                 expand = expansion(mult = c(0.1, 0.3)),
+                 date_labels = "%b %d",
+                 date_breaks = "1 day")  +
+    geom_segment(data = results_maxscore,
+                 mapping = aes(x = date,
+                     xend = (date + 0.5),
+                     y = score, 
+                     yend = y_position),
+                 alpha = 0.35) +
+    geom_text(data = results_maxscore,
+              aes(x = date + 0.5,
+                  y = y_position, 
+                  label = name_labels),
+              hjust = -0.2,
+              size = 4) +
+    ggthemes::theme_clean() +
+    theme(legend.position = "None",
+          axis.text.x=element_text(angle=45, hjust=1))
+    # ggrepel::geom_label_repel(data = results_maxscore,
+    #         mapping = aes(label = name_labels, y = y_position),
+    #         direction = 'y',
+    #         force = 2,
+    #         max.overlaps = 10,
+    #         size = 3,
+    #         hjust = -0.2,
+    #         nudge_x = 0.5,
+    #         label.padding = 0.1)
   return(plt)
 }
 
-plt = plot_function(data = results, name_labs = name_labels, name_colours=pal2)
+plt = plot_function(data = results, name_labs = name_labels, name_colours=pal2, results_maxscore =results_maxscore)
 plt
 
 if(!dir.exists("output")){
   dir.create("output")
 }
 
-png(filename = str_glue("output/pool_pick_visualization_{Sys.Date()}.png"), width = 10, height = 8, units = 'in', res = 300)
+png(filename = str_glue("output/pool_pick_visualization_{Sys.Date()}.png"), width = 16, height = 10, units = 'in', res = 300)
 plt
 dev.off()
