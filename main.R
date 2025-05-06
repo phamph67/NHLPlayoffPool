@@ -110,6 +110,17 @@ player_cols = c(
   "goalie_1", "goalie_2", "goalie_3"
 )
 
+skater_cols = c(
+  "center_1", "center_2", "center_3", "center_4", "center_5", "center_6", "center_7", "center_8",
+  "winger_1", "winger_2", "winger_3", "winger_4", "winger_5", "winger_6", "winger_7", "winger_8", "winger_9", "winger_10",
+  "defenseman_1", "defenseman_2", "defenseman_3", "defenseman_4", "defenseman_5", "defenseman_6"
+)
+
+goalie_cols = c("goalie_1", "goalie_2", "goalie_3")
+
+picked_skaters = unique(unlist(pool_picks[,skater_cols]))
+picked_goalies = unique(unlist(pool_picks[, goalie_cols]))
+
 for(i in 1:length(dates)){
   # gather eliminated teams
   eliminated_teams = team_status %>%
@@ -120,20 +131,46 @@ for(i in 1:length(dates)){
     unlist()
   
   # calculate each poolpick score by date
+  # date_subset = goalies_skaters %>% 
+  #   dplyr::filter(date_retrieved == dates[i]) %>% 
+  #   # eliminated teams = NA points
+  #   dplyr::mutate(score = ifelse(team %in% eliminated_teams, NA, score))
+  
+  # scores accumulate and will plateau if teams are eliminated - no more score loss due to eliminated players
   date_subset = goalies_skaters %>% 
-    dplyr::filter(date_retrieved == dates[i]) %>% 
-    # eliminated teams = NA points
-    dplyr::mutate(score = ifelse(team %in% eliminated_teams, NA, score))
-    
+    dplyr::filter(date_retrieved == dates[i])
+  
+  skaters_subset = date_subset %>% 
+    dplyr::filter(player %in% picked_skaters) %>% 
+    dplyr::mutate(remaining = ifelse(team %in% eliminated_teams, 0, 1))
+  goalies_subset = date_subset %>% 
+    dplyr::filter(player %in% picked_goalies) %>% 
+    dplyr::mutate(remaining = ifelse(team %in% eliminated_teams, 0, 1))
   
   dict = setNames(date_subset$score, date_subset$player)
+  skater_remaining = setNames(skaters_subset$remaining, skaters_subset$player)
+  goalie_remaining = setNames(goalies_subset$remaining, goalies_subset$player)
+  remaining = pool_picks %>% 
+    dplyr::mutate(across(.cols = all_of(skater_cols), ~skater_remaining[.x])) %>% 
+    dplyr::mutate(across(.cols = all_of(goalie_cols), ~goalie_remaining[.x])) %>% 
+    dplyr::mutate(skaters_remaining = rowSums(across(all_of(skater_cols)), na.rm = TRUE),
+                  goalies_remaining = rowSums(across(all_of(goalie_cols)), na.rm = TRUE)) %>% 
+    dplyr::mutate(players_remaining = skaters_remaining + goalies_remaining) %>% 
+    dplyr::select(email_address, players_remaining, skaters_remaining, goalies_remaining)
+  
+  
   
   results[[i]] = pool_picks %>% 
     dplyr::mutate(across(.cols = -c(timestamp, email_address, name), ~ dict[.x])) %>% 
     # dplyr::mutate(across(.cols = -c(timestamp, email_address, name), ~ifelse(is.na(.x), yes = 0, no = .x))) %>% 
     dplyr::mutate(score = rowSums(across(all_of(player_cols)), na.rm = TRUE), 
-                  players_remaining = length(player_cols) - rowSums(is.na(across(all_of(player_cols)))),
-                  date = dates[i])
+                  # players_remaining = length(player_cols) - rowSums(is.na(across(all_of(player_cols)))),
+                  date = dates[i]) %>% 
+    dplyr::left_join(., remaining, by = "email_address")
+  
+  
+  
+  
 }
 results = dplyr::bind_rows(results)
 
@@ -141,15 +178,19 @@ results = dplyr::bind_rows(results)
 results_maxscore = results %>% 
   dplyr::filter(date == max(date)) %>% 
   dplyr::arrange(desc(score)) %>% 
-  dplyr::mutate(name_labels = str_glue("{name} : {score}, Remaining players: {players_remaining}"))
+  dplyr::mutate(name_labels = str_glue("{name} : {score}"))
 
 # set y position for plotting
 results_maxscore$y_position = rev(seq(min(results$score), max(results$score), length.out = length(results_maxscore$name)))
 
 results$name = factor(results$name, levels = results_maxscore$name)
 
-
-
+latest_players_remaining = results %>% 
+  dplyr::filter(date == max(date)) %>% 
+  dplyr::arrange(desc(players_remaining)) %>% 
+  dplyr::mutate(name_labels = str_glue("{name} : Players: {players_remaining}, Skaters: {skaters_remaining}, Goalies {goalies_remaining}"),
+                y_position = rev(seq(min(players_remaining), max(players_remaining), length.out = length(players_remaining))))
+latest_players_remaining$name = factor(latest_players_remaining$name, levels = latest_players_remaining$name)
 
 # set colours
 n_lines = length(results_maxscore$name)
@@ -210,12 +251,50 @@ plot_function = function(data, name_labs, name_colours, results_maxscore){
 }
 
 plt = plot_function(data = results, name_labs = name_labels, name_colours=pal2, results_maxscore =results_maxscore)
-plt
 
+
+players_remaining_labels = str_glue("{results_maxscore$name} : {results_maxscore$score}")
+players_remaining_plot = function(data, name_colours, results_maxscore){
+  plt = ggplot2::ggplot(data = data,
+                        mapping = aes(x = date, y = players_remaining, colour = name)) +
+    geom_point() +
+    geom_line(alpha = 0.35, linetype = 2) +
+    scale_colour_manual(name = "Name (By descending latest score)", values = name_colours, labels = names) +
+    scale_y_continuous(name = "Players remaining", 
+                       breaks = seq(0,100,4), 
+                       minor_breaks = seq(0, 100, 2)) +
+    scale_x_date(name = "Date", 
+                 expand = expansion(mult = c(0.1, 0.3)),
+                 date_labels = "%b %d",
+                 date_breaks = "1 day")  +
+    geom_segment(data = results_maxscore,
+                 mapping = aes(x = date,
+                               xend = (date + 1.5),
+                               y = players_remaining, 
+                               yend = y_position),
+                 alpha = 0.35) +
+    geom_text(data = results_maxscore,
+              aes(x = date + 0.5,
+                  y = y_position, 
+                  label = name_labels),
+              hjust = -0.2,
+              size = 4) +
+    ggthemes::theme_clean() +
+    theme(legend.position = "None",
+          axis.text.x=element_text(angle=45, hjust=1))
+  return(plt)
+}
+
+plt2 = players_remaining_plot(data = results, name_colours=pal2, results_maxscore=latest_players_remaining)
+plt2
 if(!dir.exists("output")){
   dir.create("output")
 }
 
 png(filename = str_glue("output/pool_pick_visualization_{Sys.Date()}.png"), width = 16, height = 10, units = 'in', res = 300)
 plt
+dev.off()
+
+png(filename = str_glue("output/pool_pick_visualization_players_{Sys.Date()}.png"), width = 16, height = 10, units = 'in', res = 300)
+plt2
 dev.off()
