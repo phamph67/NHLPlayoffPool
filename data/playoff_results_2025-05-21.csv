@@ -1,0 +1,15 @@
+round,team1_wins,team2_wins,team1_short,team2_short,date
+conference_finals,0,0,EDM,NA,2025-05-21
+conference_finals,1,0,FLA,CAR,2025-05-21
+second_round,4,2,DAL,WPG,2025-05-21
+second_round,4,1,EDM,VGK,2025-05-21
+second_round,4,1,CAR,WSH,2025-05-21
+second_round,4,3,FLA,TOR,2025-05-21
+first_round,4,2,EDM,LAK,2025-05-21
+first_round,4,2,VGK,MIN,2025-05-21
+first_round,4,3,DAL,COL,2025-05-21
+first_round,4,3,WPG,STL,2025-05-21
+first_round,4,1,CAR,NJD,2025-05-21
+first_round,4,1,WSH,MTL,2025-05-21
+first_round,4,1,FLA,TBL,2025-05-21
+first_round,4,2,TOR,OTT,2025-05-21
