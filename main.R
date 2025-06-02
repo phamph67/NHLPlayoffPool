@@ -297,6 +297,6 @@ png(filename = str_glue("output/pool_pick_visualization_{Sys.Date()}.png"), widt
 plt
 dev.off()
 
-png(filename = str_glue("output/pool_pick_visualization_players_{Sys.Date()}.png"), width = 16, height = 10, units = 'in', res = 300)
+png(filename = str_glue("output/pool_pick_visualization_players_{Sys.Date()}.png"), width = 18, height = 10, units = 'in', res = 300)
 plt2
 dev.off()
