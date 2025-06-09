@@ -185,11 +185,13 @@ results_maxscore$y_position = rev(seq(min(results$score), max(results$score), le
 
 results$name = factor(results$name, levels = results_maxscore$name)
 
+max_players = max(results$players_remaining)
+
 latest_players_remaining = results %>% 
   dplyr::filter(date == max(date)) %>% 
   dplyr::arrange(desc(players_remaining)) %>% 
   dplyr::mutate(name_labels = str_glue("{name} : Players: {players_remaining}, Skaters: {skaters_remaining}, Goalies {goalies_remaining}"),
-                y_position = rev(seq(min(players_remaining), max(players_remaining), length.out = length(players_remaining))))
+                y_position = rev(seq(min(players_remaining), max_players, length.out = length(players_remaining))))
 latest_players_remaining$name = factor(latest_players_remaining$name, levels = latest_players_remaining$name)
 
 # set colours
@@ -295,6 +297,6 @@ png(filename = str_glue("output/pool_pick_visualization_{Sys.Date()}.png"), widt
 plt
 dev.off()
 
-png(filename = str_glue("output/pool_pick_visualization_players_{Sys.Date()}.png"), width = 16, height = 10, units = 'in', res = 300)
+png(filename = str_glue("output/pool_pick_visualization_players_{Sys.Date()}.png"), width = 18, height = 10, units = 'in', res = 300)
 plt2
 dev.off()
