@@ -1,0 +1,30 @@
+services:
+  scraper:
+    build: ./scraper
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  shiny_pool1:
+    build: ./shiny
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+      POOL_ID: "1"
+    ports:
+      - "3838:3838"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  shiny_pool2:
+    build: ./shiny
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+      POOL_ID: "2"
+    ports:
+      - "3839:3838"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

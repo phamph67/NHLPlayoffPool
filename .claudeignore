@@ -1,0 +1,9 @@
+# Legacy implementation — not part of the active pipeline.
+# Excluding prevents Claude from reading old R code and being misled
+# about how the system currently works.
+legacy/
+
+# Data files have no useful signal for code tasks
+*.csv
+*.xlsx
+*.png
