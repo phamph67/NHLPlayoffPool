@@ -39,11 +39,22 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# pkgdown site
-docs/
+# Docker secrets
+.env
+
 
 # translation temp files
 po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# ignore legacy data/output but keep one example of each file type for context
+legacy/data/*
+!legacy/data/skaters_2025-06-18.csv
+!legacy/data/goalies_2025-06-18.csv
+!legacy/data/playoff_results_2025-06-18.csv
+!legacy/data/standings_2025-06-18.csv
+legacy/output/*
+!legacy/output/pool_pick_visualization_2025-06-02.png
+!legacy/output/pool_pick_visualization_players_2025-06-02.png

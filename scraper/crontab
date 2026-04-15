@@ -1,0 +1,5 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
+
+# Run scraper daily at 21:00 EST (02:00 UTC)
+0 2 * * * root . /app/env.sh && python /app/scraper.py >> /var/log/cron.log 2>&1
