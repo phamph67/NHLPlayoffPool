@@ -55,6 +55,14 @@ legacy/data/*
 !legacy/data/goalies_2025-06-18.csv
 !legacy/data/playoff_results_2025-06-18.csv
 !legacy/data/standings_2025-06-18.csv
+!legacy/data/fake_picks.csv
 legacy/output/*
 !legacy/output/pool_pick_visualization_2025-06-02.png
 !legacy/output/pool_pick_visualization_players_2025-06-02.png
+
+# python venv
+venv/
+
+# nginx basic auth password file
+nginx/.htpasswd
+

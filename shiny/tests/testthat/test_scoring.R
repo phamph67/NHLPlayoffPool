@@ -70,9 +70,9 @@ no_eliminations <- data.frame(
 # ---------------------------------------------------------------------------
 
 test_that("parse_db_url extracts all fields correctly", {
-  p <- parse_db_url("postgres://ppham:abc123@localhost:5432/nhl")
-  expect_equal(p$user,     "ppham")
-  expect_equal(p$password, "abc123")
+  p <- parse_db_url("postgres://testuser:testpass@localhost:5432/nhl")
+  expect_equal(p$user,     "testuser")
+  expect_equal(p$password, "testpass")
   expect_equal(p$host,     "localhost")
   expect_equal(p$port,     5432L)
   expect_equal(p$dbname,   "nhl")
