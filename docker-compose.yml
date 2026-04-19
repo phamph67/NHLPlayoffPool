@@ -4,6 +4,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+      SCRAPE_YEAR: ${SCRAPE_YEAR}
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -13,8 +14,6 @@ services:
     environment:
       DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
       POOL_ID: "1"
-    ports:
-      - "3838:3838"
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -24,7 +23,17 @@ services:
     environment:
       DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
       POOL_ID: "2"
-    ports:
-      - "3839:3838"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./nginx/.htpasswd:/etc/nginx/.htpasswd:ro
+    depends_on:
+      - shiny_pool1
+      - shiny_pool2

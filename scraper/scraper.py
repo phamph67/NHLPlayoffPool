@@ -30,9 +30,10 @@ HEADERS = {
     )
 }
 
-SKATERS_URL  = "https://www.hockey-reference.com/playoffs/NHL_2025_skaters.html"
-GOALIES_URL  = "https://www.hockey-reference.com/playoffs/NHL_2025_goalies.html"
-PLAYOFFS_URL = "https://www.hockey-reference.com/playoffs/NHL_2025.html"
+_YEAR        = os.environ.get("SCRAPE_YEAR", "2025")
+SKATERS_URL  = f"https://www.hockey-reference.com/playoffs/NHL_{_YEAR}_skaters.html"
+GOALIES_URL  = f"https://www.hockey-reference.com/playoffs/NHL_{_YEAR}_goalies.html"
+PLAYOFFS_URL = f"https://www.hockey-reference.com/playoffs/NHL_{_YEAR}.html"
 
 # Maps partial team name fragment → 3-letter abbreviation.
 # Must cover both full city/region names (used in team1) and
