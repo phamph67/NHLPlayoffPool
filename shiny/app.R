@@ -67,11 +67,6 @@ server <- function(input, output, session) {
       "SELECT scrape_date, name_ref, team, wins, shutouts, goals, assists FROM goalies"
     )
 
-    eliminations <- dbGetQuery(
-      conn,
-      "SELECT team, eliminated_date FROM eliminations"
-    )
-
     # Guard: nothing to plot yet
     if (nrow(picks) == 0 || (nrow(skaters_db) == 0 && nrow(goalies_db) == 0)) {
       return(
@@ -81,7 +76,7 @@ server <- function(input, output, session) {
       )
     }
 
-    results <- compute_scores(picks, skaters_db, goalies_db, eliminations)
+    results <- compute_scores(picks, skaters_db, goalies_db)
 
     # --- Plot --------------------------------------------------------------
 

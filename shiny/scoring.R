@@ -3,22 +3,22 @@
 
 #' Compute per-participant cumulative scores across all scrape dates.
 #'
-#' @param picks        data.frame: participant, position_slot, name_ref, position_type
-#' @param skaters_db   data.frame: scrape_date, name_ref, team, goals, assists
-#' @param goalies_db   data.frame: scrape_date, name_ref, team, wins, shutouts, goals, assists
-#' @param eliminations data.frame: team, eliminated_date
+#' @param picks      data.frame: participant, position_slot, name_ref, position_type
+#' @param skaters_db data.frame: scrape_date, name_ref, team, goals, assists
+#' @param goalies_db data.frame: scrape_date, name_ref, team, wins, shutouts, goals, assists
+#' @param ...        ignored (accepts extra args for backwards compatibility)
 #'
 #' @return data.frame: participant, date, score
-compute_scores <- function(picks, skaters_db, goalies_db, eliminations) {
+compute_scores <- function(picks, skaters_db, goalies_db, ...) {
   # Skaters: goals + assists
   skaters_scored <- skaters_db |>
     dplyr::mutate(score = goals + assists) |>
-    dplyr::select(scrape_date, name_ref, team, score)
+    dplyr::select(scrape_date, name_ref, score)
 
   # Goalies: goals + assists + wins*2 + shutouts*3
   goalies_scored <- goalies_db |>
     dplyr::mutate(score = goals + assists + wins * 2L + shutouts * 3L) |>
-    dplyr::select(scrape_date, name_ref, team, score)
+    dplyr::select(scrape_date, name_ref, score)
 
   stats <- dplyr::bind_rows(skaters_scored, goalies_scored)
   all_dates <- sort(unique(stats$scrape_date))
@@ -27,18 +27,8 @@ compute_scores <- function(picks, skaters_db, goalies_db, eliminations) {
     day_stats <- stats[stats$scrape_date == d, ]
 
     picks |>
-      dplyr::left_join(
-        day_stats[, c("name_ref", "team", "score")],
-        by = "name_ref"
-      ) |>
-      dplyr::left_join(eliminations, by = "team") |>
-      dplyr::mutate(
-        effective_score = dplyr::case_when(
-          is.na(score)                                    ~ 0L,
-          !is.na(eliminated_date) & eliminated_date <= d ~ 0L,
-          TRUE                                            ~ score
-        )
-      ) |>
+      dplyr::left_join(day_stats[, c("name_ref", "score")], by = "name_ref") |>
+      dplyr::mutate(effective_score = dplyr::if_else(is.na(score), 0L, score)) |>
       dplyr::group_by(participant) |>
       dplyr::summarise(score = sum(effective_score), .groups = "drop") |>
       dplyr::mutate(date = d)

@@ -66,11 +66,11 @@ An **R Shiny** application reads from the local PostgreSQL instance and renders 
 
 ### Elimination Rule
 
-- Points are **cumulative and never deducted** — a player's historical points are always retained.
-- Once a player's NHL team is **eliminated from the playoffs**, that player stops producing points on the next nightly update.
-- Players on active teams continue to accumulate until their team is eliminated or the playoffs end.
+- Points are **cumulative and never deducted** — a player's score never drops.
+- Once a player's team is eliminated, their stats on hockey-reference freeze at their final total. Subsequent scrapes continue to show that frozen total, so their contribution to the pool also stays frozen — it just stops growing.
+- No special elimination logic is needed in scoring: the scraper still records eliminations, but the Shiny app ignores them entirely and scores directly from the cumulative stats snapshot.
 
-> **Example:** If a participant picks a player whose team exits in Round 1, those Round 1 points are kept — but no further points are added from Round 2 onward.
+> **Example:** If a participant picks a player whose team exits in Round 1 with 8 points, those 8 points are kept permanently — the line on the graph simply goes flat from that date onward.
 
 ---
 
@@ -84,12 +84,12 @@ Google Form (picks)
                                                         │
   NHL Site / API  ──►  nightly scraper (21:00 EST)  ──►  stats table (dated snapshots)
                                                         │
-                                                   eliminations table
-                                                   (team → round_eliminated)
+                                                   eliminations table        (recorded for reference;
+                                                   (team → round_eliminated)  not used in scoring)
                                                         │
                                                         ▼
                                                R Shiny Dashboard
-                                               (score calc at query time)
+                                               (score calc at query time — cumulative stats only)
                                                         │
                                                         ▼
                                             DuckDNS endpoint (home server)
@@ -160,11 +160,9 @@ Export each pool's Google Form responses as CSV. Before running the ingest, make
 Everything else can be left as-is. The script only reads:
 - `name` — participant display name
 - `pool_id` — pool identifier
-- Columns matching `"Pick a center/winger/defenseman/goalie (group N)..."` — exactly 27 expected (8 centers, 10 wingers, 6 defensemen, 3 goalies)
+- Columns matching `"Pick a forward/defenseman/goalie (group N)..."` — exactly 24 expected (12 forwards, 8 defensemen, 4 goalies)
 
 All other columns (`Timestamp`, `Email Address`, etc.) are ignored.
-
-See `legacy/data/fake_picks.csv` as a format reference.
 
 #### Step 2 — Apply schema to the production database
 

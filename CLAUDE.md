@@ -66,10 +66,10 @@ PostgreSQL → shiny/app.R (at render time) → cumulative line graph
 - Two Shiny containers, same image, differ only by `POOL_ID` env var (1 or 2) → ports 3838 / 3839
 - Scoring lives in `shiny/scoring.R` (`compute_scores()`), applied at render time, never stored
 - Scoring: skaters = `goals + assists`; goalies = `goals + assists + wins×2 + shutouts×3`
-- Players on eliminated teams score 0 from `eliminated_date` onward; prior points are kept
+- Eliminated players' stats freeze on hockey-reference at their final total — scoring ignores the eliminations table entirely and scores from cumulative stats only (scores never drop, they plateau)
 - `db/hockey_player_key.csv` is the name-mapping seed file (form names ↔ hockey-reference names)
 
-Scraper quirks (duplicate columns, sub-headers, elimination logic): `docs/scraper.md`
+Scraper quirks (duplicate columns, sub-headers, encoding): `docs/scraper.md`
 
 ## Legacy Code
 

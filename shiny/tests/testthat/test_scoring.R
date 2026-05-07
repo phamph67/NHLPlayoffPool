@@ -118,40 +118,28 @@ test_that("goalie score is goals + assists + wins*2 + shutouts*3", {
 # Elimination logic
 # ---------------------------------------------------------------------------
 
-test_that("player on eliminated team scores 0 from elimination date onward", {
-  eliminations <- data.frame(
-    team            = "EDM",
-    eliminated_date = as.Date("2025-05-02"),
-    stringsAsFactors = FALSE
-  )
+test_that("player on eliminated team retains accumulated score after elimination", {
   results <- compute_scores(
-    picks        = make_picks() |> filter(participant == "Alice", position_slot == "center_1"),
-    skaters_db   = make_skaters() |> filter(name_ref == "Connor McDavid"),
-    goalies_db   = make_goalies()[0, ],
-    eliminations = eliminations
+    picks      = make_picks() |> filter(participant == "Alice", position_slot == "center_1"),
+    skaters_db = make_skaters() |> filter(name_ref == "Connor McDavid"),
+    goalies_db = make_goalies()[0, ]
   )
-  # May 1: EDM not yet eliminated → full score (3+5=8)
+  # May 1: goals=3, assists=5 → 8
   day1 <- results |> filter(date == as.Date("2025-05-01"))
   expect_equal(day1$score, 8L)
 
-  # May 2: EDM eliminated on May 2 → score is 0
+  # May 2: cumulative stats freeze at goals=4, assists=7 → 11 (score never drops)
   day2 <- results |> filter(date == as.Date("2025-05-02"))
-  expect_equal(day2$score, 0L)
+  expect_equal(day2$score, 4L + 7L)
 })
 
-test_that("player on active team is unaffected by another team's elimination", {
-  eliminations <- data.frame(
-    team            = "WPG",
-    eliminated_date = as.Date("2025-05-01"),
-    stringsAsFactors = FALSE
-  )
+test_that("scoring is unaffected by other teams' results", {
   results <- compute_scores(
-    picks        = make_picks() |> filter(participant == "Alice", position_slot == "center_1"),
-    skaters_db   = make_skaters() |> filter(name_ref == "Connor McDavid"),
-    goalies_db   = make_goalies()[0, ],
-    eliminations = eliminations
+    picks      = make_picks() |> filter(participant == "Alice", position_slot == "center_1"),
+    skaters_db = make_skaters() |> filter(name_ref == "Connor McDavid"),
+    goalies_db = make_goalies()[0, ]
   )
-  # EDM is not eliminated; Alice's skater should still score normally
+  # Alice's EDM skater scores on cumulative stats regardless of other teams
   day2 <- results |> filter(date == as.Date("2025-05-02"))
   expect_equal(day2$score, 4L + 7L)  # goals=4, assists=7
 })
