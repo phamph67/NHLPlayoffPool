@@ -5,12 +5,12 @@ Standalone utility: ingest a prepared picks CSV into PostgreSQL players + picks 
 Expected CSV columns:
   - name      participant display name
   - pool_id   integer pool identifier (1 or 2)
-  - pick columns matching "Pick a (center|winger|defenseman|goalie)..." in order:
-      8 centers, 10 wingers, 6 defensemen, 3 goalies
+  - pick columns matching "Pick a (forward|defenseman|goalie)..." in order:
+      12 forwards, 8 defensemen, 4 goalies
 
 Usage:
-    DB_NAME=nhl_dev python db/ingest_picks.py legacy/data/pool1_picks.csv
-    DB_NAME=nhl_dev python db/ingest_picks.py legacy/data/pool2_picks.csv
+    DB_NAME=nhl python db/ingest_picks.py data/2026_nhl_pool1.csv
+    DB_NAME=nhl python db/ingest_picks.py data/2026_nhl_pool2.csv
 """
 
 import csv
@@ -28,10 +28,9 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 PLAYER_KEY_CSV = Path(__file__).parent / "hockey_player_key.csv"
 
 SLOTS = (
-    [f"center_{i}"     for i in range(1, 9)]   +  # 8 centers
-    [f"winger_{i}"     for i in range(1, 11)]  +  # 10 wingers
-    [f"defenseman_{i}" for i in range(1, 7)]   +  # 6 defensemen
-    [f"goalie_{i}"     for i in range(1, 4)]      # 3 goalies
+    [f"forward_{i}"    for i in range(1, 13)]  +  # 12 forwards
+    [f"defenseman_{i}" for i in range(1, 9)]   +  # 8 defensemen
+    [f"goalie_{i}"     for i in range(1, 5)]      # 4 goalies
 )
 
 
@@ -73,7 +72,7 @@ def ingest_picks(conn, picks_csv: Path, player_lookup: dict) -> tuple[int, int]:
 
         pick_cols = [
             c for c in reader.fieldnames
-            if re.search(r"Pick a (center|winger|defenseman|goalie)", c, re.IGNORECASE)
+            if re.search(r"Pick a (forward|defenseman|goalie)", c, re.IGNORECASE)
         ]
         if len(pick_cols) != len(SLOTS):
             raise ValueError(

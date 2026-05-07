@@ -187,12 +187,25 @@ The containers communicate over Docker's internal network using service names (`
 
 The pool pages are password-protected. The credentials file is at `nginx/.htpasswd` (gitignored).
 
-To create or add a user:
-
 ```bash
 sudo apt install apache2-utils   # one-time
-htpasswd -c nginx/.htpasswd USERNAME   # -c creates new file (use once)
-htpasswd nginx/.htpasswd USERNAME      # add additional users (no -c)
+
+# Create the file with a first user (-c overwrites if file exists)
+htpasswd -c nginx/.htpasswd USERNAME
+
+# Add another user (omit -c to append)
+htpasswd nginx/.htpasswd USERNAME
+
+# List existing usernames
+cut -d: -f1 nginx/.htpasswd
+
+# Remove a user
+htpasswd -D nginx/.htpasswd USERNAME
+```
+
+After any change, reload nginx to pick it up:
+```bash
+docker compose restart nginx
 ```
 
 Users enter these credentials when first visiting the site. The browser caches them for the session.
@@ -206,7 +219,7 @@ Users enter these credentials when first visiting the site. The browser caches t
 | Check cert expiry | `sudo certbot certificates` |
 | Force renew early | `sudo certbot renew --force-renewal` |
 | Test renewal automation | `sudo certbot renew --dry-run` |
-| Restart all services | `cd ~/projects/NHLPlayoffPool_dev && docker compose restart` |
+| Restart all services | `cd ~/projects/NHLPlayoffPool && docker compose restart` |
 | View nginx logs | `docker compose logs -f nginx` |
 | Add/change pool password | `htpasswd nginx/.htpasswd USERNAME` then `docker compose restart nginx` |
 | DuckDNS IP update fails | Check `cat /tmp/duckdns.log`; verify token in crontab |

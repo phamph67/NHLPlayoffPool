@@ -60,8 +60,8 @@ Hockey-reference uses full proper names (e.g. `Aaron Ekblad`). The Google Form u
 1. Browser hits `localhost:3838`
 2. Shiny server starts `app.R` for `POOL_ID=1`
 3. App connects to PostgreSQL via `host.docker.internal:5432`
-4. Four queries: `picks` (filtered to pool 1), `skaters`, `goalies`, `eliminations`
-5. `compute_scores()` in `scoring.R` joins and scores across all dates
+4. Three queries: `picks` (filtered to pool 1), `skaters`, `goalies`
+5. `compute_scores()` in `scoring.R` joins picks against cumulative stats across all dates
 6. `ggplot2` renders the cumulative line graph
 7. Graph is returned to the browser as a PNG
 

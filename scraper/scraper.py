@@ -39,39 +39,52 @@ PLAYOFFS_URL = f"https://www.hockey-reference.com/playoffs/NHL_{_YEAR}.html"
 # Must cover both full city/region names (used in team1) and
 # nickname variants (used in team2 after " over / lead ").
 TEAM_NAME_MAP = {
-    "Edmonton":      "EDM",
-    "Los Angeles":   "LAK",
-    "Vegas":         "VGK",
-    "Minnesota":     "MIN",
-    "Dallas":        "DAL",
-    "Colorado":      "COL",
-    "Winnipeg":      "WPG",
-    "St. Louis":     "STL",
+    "Anaheim":       "ANA",
+    "Boston":        "BOS",
+    "Buffalo":       "BUF",
     "Carolina":      "CAR",
-    "New Jersey":    "NJD",
-    "Washington":    "WSH",
-    "Montreal":      "MTL",
+    "Colorado":      "COL",
+    "Dallas":        "DAL",
+    "Edmonton":      "EDM",
     "Florida":       "FLA",
+    "Los Angeles":   "LAK",
+    "Minnesota":     "MIN",
+    "Montreal":      "MTL",
+    "New Jersey":    "NJD",
+    "Ottawa":        "OTT",
+    "Philadelphia":  "PHI",
+    "Pittsburgh":    "PIT",
+    "St. Louis":     "STL",
     "Tampa Bay":     "TBL",
     "Toronto":       "TOR",
-    "Ottawa":        "OTT",
+    "Utah":          "UTA",
+    "Vegas":         "VGK",
+    "Washington":    "WSH",
+    "Winnipeg":      "WPG",
     # Nickname variants
-    "Kings":         "LAK",
-    "Oilers":        "EDM",
-    "Golden Knights":"VGK",
-    "Wild":          "MIN",
-    "Stars":         "DAL",
     "Avalanche":     "COL",
-    "Jets":          "WPG",
+    "Bluejackets":   "CBJ",
     "Blues":         "STL",
-    "Hurricanes":    "CAR",
-    "Devils":        "NJD",
-    "Capitals":      "WSH",
+    "Bruins":        "BOS",
     "Canadiens":     "MTL",
-    "Panthers":      "FLA",
+    "Capitals":      "WSH",
+    "Devils":        "NJD",
+    "Ducks":         "ANA",
+    "Flyers":        "PHI",
+    "Golden Knights":"VGK",
+    "Hockey Club":   "UTA",
+    "Hurricanes":    "CAR",
+    "Jets":          "WPG",
+    "Kings":         "LAK",
     "Lightning":     "TBL",
     "Maple Leafs":   "TOR",
+    "Oilers":        "EDM",
+    "Panthers":      "FLA",
+    "Penguins":      "PIT",
+    "Sabres":        "BUF",
     "Senators":      "OTT",
+    "Stars":         "DAL",
+    "Wild":          "MIN",
 }
 
 
@@ -91,7 +104,7 @@ def get_db():
 def fetch_soup(url: str) -> BeautifulSoup:
     resp = requests.get(url, headers=HEADERS, timeout=30)
     resp.raise_for_status()
-    return BeautifulSoup(resp.text, "lxml")
+    return BeautifulSoup(resp.content, "lxml")
 
 
 def parse_stats_table(soup: BeautifulSoup) -> list[dict]:
@@ -99,7 +112,10 @@ def parse_stats_table(soup: BeautifulSoup) -> list[dict]:
     Parse a hockey-reference #stats table into a list of dicts.
 
     Hockey-reference quirks handled:
-    - Repeated sub-header rows (tr.thead class) are skipped.
+    - The outer <thead> only has group-level headers (Scoring, Goals, etc.).
+      The actual column names (Player, Tm, G, A, ...) live in the first
+      <tr class="thead"> inside <tbody> — that row is used for the header.
+    - Repeated sub-header rows (tr.thead class) in tbody are skipped for data.
     - Rows where the first cell equals 'Rk' are sub-headers and are skipped.
     - Duplicate column names are suffixed with _1, _2, ... to avoid key collisions
       (e.g. the skaters table has two 'EV', 'PP', 'SH' columns).
@@ -108,8 +124,16 @@ def parse_stats_table(soup: BeautifulSoup) -> list[dict]:
     if table is None:
         raise ValueError("Could not find table#stats on page")
 
-    thead = table.find("thead")
-    raw_headers = [th.get_text(strip=True) for th in thead.find_all("th")]
+    tbody = table.find("tbody")
+    # Skaters: column names are in a <tr class="thead"> inside tbody.
+    # Goalies: column names are in the last <tr> of the outer <thead>.
+    header_row = tbody.find("tr", class_="thead")
+    if header_row is None:
+        thead_rows = table.find("thead").find_all("tr")
+        header_row = thead_rows[-1]
+    if header_row is None:
+        raise ValueError("Could not find column header row in table#stats")
+    raw_headers = [th.get_text(strip=True) for th in header_row.find_all(["th", "td"])]
 
     # Deduplicate column names
     seen: dict[str, int] = {}
@@ -123,7 +147,7 @@ def parse_stats_table(soup: BeautifulSoup) -> list[dict]:
             headers.append(h)
 
     rows = []
-    for tr in table.find("tbody").find_all("tr"):
+    for tr in tbody.find_all("tr"):
         if "thead" in tr.get("class", []):
             continue
         cells = [td.get_text(strip=True) for td in tr.find_all(["td", "th"])]
@@ -225,7 +249,7 @@ def scrape_eliminations(today: date) -> list[tuple]:
             continue
 
         # Parse "{team1_full} over|lead {team2_full} XXX"
-        parts = re.split(r"\s+(?:over|lead)\s+", series_str, maxsplit=1)
+        parts = re.split(r"\s*(?:over|lead)\s*", series_str, maxsplit=1)
         if len(parts) != 2:
             log.warning("Could not split series string: %r", series_str)
             continue

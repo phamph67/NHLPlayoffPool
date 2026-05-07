@@ -10,9 +10,11 @@
 
 | URL | Data extracted |
 |-----|----------------|
-| `hockey-reference.com/playoffs/NHL_2025_skaters.html` | Goals, assists per skater |
-| `hockey-reference.com/playoffs/NHL_2025_goalies.html` | Wins, shutouts, goals, assists per goalie |
-| `hockey-reference.com/playoffs/NHL_2025.html` | Playoff bracket — used to derive eliminations |
+| `hockey-reference.com/playoffs/NHL_{SCRAPE_YEAR}_skaters.html` | Goals, assists per skater |
+| `hockey-reference.com/playoffs/NHL_{SCRAPE_YEAR}_goalies.html` | Wins, shutouts, goals, assists per goalie |
+| `hockey-reference.com/playoffs/NHL_{SCRAPE_YEAR}.html` | Playoff bracket — used to derive eliminations |
+
+`SCRAPE_YEAR` is set via the `.env` file and passed into the container as an environment variable.
 
 All stats on hockey-reference are **cumulative season totals**, not per-game. Each nightly scrape captures a full snapshot of where every player stands to date.
 
@@ -34,9 +36,13 @@ This is necessary because cron does not inherit the container's environment vari
 
 Hockey-reference stats pages use an HTML `<table id="stats">` structure with a few quirks:
 
-**Sub-header rows:** The `<tbody>` contains repeated header rows (with CSS class `thead`) interspersed throughout the data. These are skipped by checking `tr.get("class", [])`.
+**Column header location:** The outer `<thead>` only contains group-level headers (`Scoring`, `Goals`, etc.). The actual column names (`Player`, `Tm`, `G`, `A`, …) live in the first `<tr class="thead">` row inside `<tbody>` for the skaters page, or in the last `<tr>` of the outer `<thead>` for the goalies page. `parse_stats_table()` checks both locations and uses whichever is present.
+
+**Sub-header rows:** The `<tbody>` may contain repeated header rows (CSS class `thead`) interspersed throughout the data. These are skipped when iterating data rows.
 
 **Duplicate column names:** The skaters table has two sets of columns named `EV`, `PP`, and `SH` (even-strength and power-play splits). `parse_stats_table()` deduplicates these by appending `_1` to the second occurrence (e.g. `EV` and `EV_1`). Only `G` (goals) and `A` (assists) are used, so this doesn't affect the data written to the DB — but it prevents dict key collisions during parsing.
+
+**Unicode player names:** `fetch_soup()` passes `resp.content` (raw bytes) to BeautifulSoup rather than `resp.text`. This lets lxml detect the page encoding from the HTML meta tag, preventing mojibake for players with diacritics in their names (e.g. `Tim Stützle`, `Martin Nečas`).
 
 **Empty-name rows:** Some rows have a blank `Player` cell (separator rows). `parse_stats_table()` returns these as-is; `scrape_skaters()` and `scrape_goalies()` filter them out with `if not name or not team: continue`.
 
@@ -44,7 +50,9 @@ Hockey-reference stats pages use an HTML `<table id="stats">` structure with a f
 
 ## Deriving eliminations
 
-The playoff bracket page (`NHL_2025.html`) has a summary table where each row looks like:
+> **Note:** The eliminations table is still populated by the scraper for reference, but the Shiny scoring logic no longer uses it. Eliminated players' stats naturally freeze on hockey-reference at their final cumulative total — the scoring app reads those frozen totals directly, so scores plateau rather than drop.
+
+The playoff bracket page (`NHL_{SCRAPE_YEAR}.html`) has a summary table where each row looks like:
 
 ```
 Round name  |  Score  |  Series description
@@ -98,4 +106,4 @@ GOALIES_URL  = "https://www.hockey-reference.com/playoffs/NHL_2026_goalies.html"
 PLAYOFFS_URL = "https://www.hockey-reference.com/playoffs/NHL_2026.html"
 ```
 
-Also update `TEAM_NAME_MAP` if any franchises have relocated or been added.
+Also update `TEAM_NAME_MAP` if any franchises have relocated or been added. The map must include both city/region names and nickname variants for every team in the playoffs — missing entries cause elimination records to be silently skipped with a warning in the log.
